@@ -64,6 +64,9 @@
       <Project>{a9468999-d9f1-4ca3-8ceb-71e520bed921}</Project>
       <Name>Notifications</Name>
     </ProjectReference>
+    <Reference Include="gio-sharp, Version=3.0.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f">
+      <Package>gio-sharp-3.0</Package>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System" />
