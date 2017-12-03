@@ -43,7 +43,7 @@ namespace Banshee.NowPlaying
     {
         private NowPlayingSource source;
         private Hyena.Widgets.RoundedFrame frame;
-        private Gtk.Window video_window;
+        private Gtk.Window fullscreen_window;
         private Gtk.Window primary_window;
         private FullscreenAdapter fullscreen_adapter;
         private ScreensaverManager screensaver;
@@ -57,19 +57,13 @@ namespace Banshee.NowPlaying
 
             Contents = new NowPlayingContents ();
 
-            // This is my really sweet hack - it's where the video widget
-            // is sent when the source is not active. This keeps the video
-            // widget from being completely destroyed, causing problems with
-            // its internal windowing and GstXOverlay. It's also conveniently
-            // the window that is used to do fullscreen video. Sweeeeeeeeeet.
-            video_window = new FullscreenWindow (service.PrimaryWindow);
-            video_window.Hidden += OnFullscreenWindowHidden;
-            video_window.Realize ();
-            video_window.Add (Contents);
+            fullscreen_window = new FullscreenWindow (primary_window);
+            fullscreen_window.Hidden += OnFullscreenWindowHidden;
 
             frame = new Hyena.Widgets.RoundedFrame ();
             frame.SetFillColor (new Cairo.Color (0, 0, 0));
             frame.DrawBorder = false;
+            frame.Child = Contents;
             frame.Show ();
 
             PackStart (frame, true, true, 0);
@@ -89,32 +83,18 @@ namespace Banshee.NowPlaying
             base.Dispose (disposing);
         }
 
-        private void MoveVideoExternal (bool hidden)
+        private void MoveVideoExternal ()
         {
-            if (Contents.Parent != video_window) {
-                Contents.Visible = !hidden;
-                Contents.Reparent (video_window);
-            }
+            Hyena.Log.Debug ("Interface.MoveVideoExternal ()");
+            Contents.Reparent (fullscreen_window);
+            Contents.Show ();
         }
 
         private void MoveVideoInternal ()
         {
-            if (Contents.Parent != frame) {
-                Contents.Reparent (frame);
-                Contents.Show ();
-            }
-        }
-
-        protected override void OnRealized ()
-        {
-            base.OnRealized ();
-            MoveVideoInternal ();
-        }
-
-        protected override void OnUnrealized ()
-        {
-            MoveVideoExternal (false);
-            base.OnUnrealized ();
+            Hyena.Log.Debug ("Interface.MoveVideoInternal ()");
+            Contents.Reparent (frame);
+            Contents.Show ();
         }
 
 #region Video Fullscreen Override
@@ -133,10 +113,11 @@ namespace Banshee.NowPlaying
 
         internal void OverrideFullscreen ()
         {
+            Hyena.Log.Debug ("Interface.OverrideFullscreen ()");
             FullscreenHandler (false);
 
             InterfaceActionService service = ServiceManager.Get<InterfaceActionService> ();
-            if (service == null || service.ViewActions == null) {
+            if (service?.ViewActions == null) {
                 return;
             }
 
@@ -148,10 +129,11 @@ namespace Banshee.NowPlaying
 
         internal void RelinquishFullscreen ()
         {
+            Hyena.Log.Debug ("privateInterface.RelinquishFullscreen ()");
             FullscreenHandler (false);
 
             InterfaceActionService service = ServiceManager.Get<InterfaceActionService> ();
-            if (service == null || service.ViewActions == null) {
+            if (service?.ViewActions == null) {
                 return;
             }
 
@@ -160,6 +142,7 @@ namespace Banshee.NowPlaying
 
         private void OnFullscreenWindowHidden (object o, EventArgs args)
         {
+            Hyena.Log.Debug ("Interface.OnFullscreenWindowHidden ()");
             MoveVideoInternal ();
             DisableFullscreenAction ();
         }
@@ -168,6 +151,7 @@ namespace Banshee.NowPlaying
 
         private void FullscreenHandler (bool fullscreen)
         {
+            Hyena.Log.DebugFormat ("Interface.FullscreenHandler ({0})", fullscreen);
             // Note: Since the video window is override-redirect, we
             // need to fullscreen the main window, so the window manager
             // actually knows we are actually doing stuff in fullscreen
@@ -178,17 +162,15 @@ namespace Banshee.NowPlaying
 
             if (fullscreen) {
                 primary_window.Fullscreen ();
-
-                MoveVideoExternal (true);
-                video_window.Show ();
-                fullscreen_adapter.Fullscreen (video_window, true);
+                fullscreen_window.Show ();
+                fullscreen_adapter.Fullscreen (fullscreen_window, true);
                 screensaver.Inhibit ();
+                MoveVideoExternal ();
             } else {
-                video_window.Hide ();
+                MoveVideoInternal ();
                 screensaver.UnInhibit ();
-                fullscreen_adapter.Fullscreen (video_window, false);
-                video_window.Hide ();
-
+                fullscreen_adapter.Fullscreen (fullscreen_window, false);
+                fullscreen_window.Hide ();
                 if (!primary_window_is_fullscreen) {
                     primary_window.Unfullscreen ();
                 }

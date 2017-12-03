@@ -56,16 +56,6 @@ namespace Banshee.NowPlaying
             SetupWidget ();
         }
 
-        protected override bool OnDrawn (Cairo.Context cr)
-        {
-            cr.Save ();
-            cr.SetSourceRGB (0.0, 0.0, 0.0);
-            cr.Rectangle (0, 0, Allocation.Width, Allocation.Height);
-            cr.Fill ();
-            cr.Restore ();
-            return base.OnDrawn (cr);
-        }
-
         protected override bool OnKeyPressEvent (Gdk.EventKey evnt)
         {
             PlayerEngineService player = ServiceManager.PlayerEngine;
@@ -174,6 +164,7 @@ namespace Banshee.NowPlaying
 
         protected override void OnRealized ()
         {
+            Hyena.Log.Debug ("Fullscreen.OnRealized ()");
             Events |= Gdk.EventMask.PointerMotionMask;
 
             base.OnRealized ();
@@ -185,22 +176,22 @@ namespace Banshee.NowPlaying
 
         protected override void OnUnrealized ()
         {
+            Hyena.Log.Debug ("Fullscreen.OnUnrealized ()");
             base.OnUnrealized ();
             Screen.SizeChanged -= OnScreenSizeChanged;
         }
 
         protected override bool OnDeleteEvent (Gdk.Event evnt)
         {
+            Hyena.Log.Debug ("Fullscreen.OnDeleteEvent ()");
             Hide ();
             return true;
         }
 
         protected override void OnShown ()
         {
+            Hyena.Log.Debug ("Fullscreen.OnShown ()");
             base.OnShown ();
-            if (Child != null) {
-                Child.Show ();
-            }
 
             OnHideCursorTimeout ();
             ConfigureWindow ();
@@ -210,26 +201,23 @@ namespace Banshee.NowPlaying
 
         protected override void OnHidden ()
         {
+            Hyena.Log.Debug ("Fullscreen.OnHidden ()");
             base.OnHidden ();
             DestroyControls ();
         }
 
         private void OnScreenSizeChanged (object o, EventArgs args)
         {
+            Hyena.Log.Debug ("Fullscreen.OnScreenSizeChanged ()");
             ConfigureWindow ();
         }
 
         private void ParentActiveNotification (object o, GLib.NotifyArgs args)
         {
-            // If our parent window is ever somehow activated while we are
-            // visible, this will ensure we merge back into the parent
+            Hyena.Log.DebugFormat ("Fullscreen.ParentActiveNotification (): IsActive = {0}", parent.IsActive);
             if (parent.IsActive) {
-                parent.Window.SkipPagerHint = false;
-                parent.Window.SkipTaskbarHint = false;
+                Hide ();
                 parent.RemoveNotification ("is-active", ParentActiveNotification);
-            } else {
-                parent.Window.SkipPagerHint = true;
-                parent.Window.SkipTaskbarHint = true;
             }
         }
 

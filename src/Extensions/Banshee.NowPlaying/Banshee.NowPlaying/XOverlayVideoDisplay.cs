@@ -43,27 +43,51 @@ namespace Banshee.NowPlaying
 
         public XOverlayVideoDisplay () : base ()
         {
+            Hyena.Log.Debug ("Display.ctor ()");
             HasWindow = false;
             CreateVideoWindow ();
         }
 
-        protected override void OnRealized ()
+        internal void SetVideoContext ()
         {
-            IsRealized = true;
-            CreateVideoWindow ();
-            Window = Parent.Window;
-            video_window.Reparent (Window, 0, 0);
-            video_window.MoveResize (Allocation.X, Allocation.Y, Allocation.Width, Allocation.Height);
-            video_window.ShowUnraised ();
+            Hyena.Log.DebugFormat ("Display.SetContext (): VideoDisplayContextType = {0}", ServiceManager.PlayerEngine.VideoDisplayContextType);
+
+            if (ServiceManager.PlayerEngine.VideoDisplayContextType == VideoDisplayContextType.GdkWindow) {
+                ServiceManager.PlayerEngine.VideoDisplayContext = video_window.Handle;
+                ServiceManager.PlayerEngine.VideoWindowRealize (video_window.Handle);
+            } else {
+                ServiceManager.PlayerEngine.VideoDisplayContext = IntPtr.Zero;
+            }
         }
 
-        private void CreateVideoWindow ()
+        protected override void OnRealized ()
+        {
+            Hyena.Log.Debug ("Display.OnRealized ()");
+            base.OnRealized ();
+
+            SetVideoContext ();
+
+            video_window.Reparent (Parent.Window, 0, 0);
+        }
+
+        protected override void OnUnrealized ()
+        {
+            Hyena.Log.Debug ("Display.OnUnrealized ()");
+
+            video_window.Reparent (null, 0, 0);
+
+            base.OnUnrealized ();
+        }
+
+        protected void CreateVideoWindow ()
         {
             if (video_window != null) {
                 return;
             }
 
-            var attributes = new Gdk.WindowAttr () {
+            Hyena.Log.Debug ("Display.CreateVideoWindow ()");
+
+            var attributes = new Gdk.WindowAttr {
                 WindowType = Gdk.WindowType.Child,
                 X = 0,
                 Y = 0,
@@ -81,55 +105,39 @@ namespace Banshee.NowPlaying
 
             video_window = new Gdk.Window (null, attributes, attributes_mask);
             video_window.UserData = Handle;
-
-            video_window.BackgroundPattern = null;
-
-            if (ServiceManager.PlayerEngine.VideoDisplayContextType == VideoDisplayContextType.GdkWindow) {
-                ServiceManager.PlayerEngine.VideoDisplayContext = video_window.Handle;
-                ServiceManager.PlayerEngine.VideoWindowRealize (video_window.Handle);
-            } else {
-                ServiceManager.PlayerEngine.VideoDisplayContext = IntPtr.Zero;
-            }
-        }
-
-        protected override void OnUnrealized ()
-        {
-            video_window.Hide ();
-            video_window.Reparent (null, 0, 0);
-
-            base.OnUnrealized ();
         }
 
         protected override void OnMapped ()
         {
+            Hyena.Log.Debug ("Display.OnMapped ()");
             base.OnMapped ();
             video_window.ShowUnraised ();
         }
 
         protected override void OnUnmapped ()
         {
+            Hyena.Log.Debug ("Display.OnUnmapped ()");
             video_window.Hide ();
             base.OnUnmapped ();
         }
 
         protected override void OnSizeAllocated (Gdk.Rectangle allocation)
         {
+            Hyena.Log.DebugFormat ("Display.OnSizeAllocated ({0})", allocation);
             if (!IsRealized) {
                 return;
             }
 
-            Gdk.Rectangle rect = new Gdk.Rectangle (allocation.X, allocation.Y, allocation.Width, allocation.Height);
-            video_window.MoveResize (rect);
+            video_window.MoveResize (allocation);
 
             base.OnSizeAllocated (allocation);
-
-            QueueDraw ();
         }
 
         protected override bool OnConfigureEvent (Gdk.EventConfigure evnt)
         {
-            if (video_window != null && ServiceManager.PlayerEngine.VideoDisplayContextType == VideoDisplayContextType.GdkWindow) {
-                ServiceManager.PlayerEngine.VideoExpose (video_window.Handle, true);
+            Hyena.Log.DebugFormat ("Display.OnConfigureEvent ({0})", evnt);
+            if (evnt.Type == Gdk.EventType.Expose) {
+                ExposeVideo ();
             }
 
             return false;
@@ -137,6 +145,12 @@ namespace Banshee.NowPlaying
 
         protected override void ExposeVideo ()
         {
+            Hyena.Log.Debug ("Display.ExposeVideo ()");
+
+            if (null == video_window) {
+                return;
+            }
+
             if (ServiceManager.PlayerEngine.VideoDisplayContextType == VideoDisplayContextType.GdkWindow) {
                 ServiceManager.PlayerEngine.VideoExpose (video_window.Handle, true);
             }
